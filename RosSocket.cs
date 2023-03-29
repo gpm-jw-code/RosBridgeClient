@@ -20,6 +20,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using RosSharp.RosBridgeClient.Protocols;
 
 namespace RosSharp.RosBridgeClient
@@ -64,7 +65,7 @@ namespace RosSharp.RosBridgeClient
 
         private void Protocol_OnConnected(object sender, EventArgs e)
         {
-            
+
         }
 
         public void Close(int millisecondsWait = 0)
@@ -181,6 +182,37 @@ namespace RosSharp.RosBridgeClient
             Send(serviceCall);
             return id;
         }
+        public Tout CallServiceAndWait<Tin, Tout>(string service, Tin serviceArguments, int timeout = 3000) where Tin : Message where Tout : Message
+        {
+            Message _response = null;
+            bool reply = false;
+            ServiceResponseHandler<Tout> responseHandler = (response) =>
+            {
+                _response = response;
+                reply = true;
+            };
+            string id = GetUnusedCounterID(ServiceConsumers, service);
+            Communication serviceCall;
+            ServiceConsumers.Add(id, new ServiceConsumer<Tin, Tout>(id, service, new ServiceResponseHandler<Tout>(responseHandler), out serviceCall, serviceArguments));
+            Send(serviceCall);
+
+            CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
+            while (!reply)
+            {
+                if (cts.IsCancellationRequested)
+                    break;
+                Thread.Sleep(1);
+            }
+            if (reply)
+            {
+                return (Tout)_response;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
 
         #endregion
 

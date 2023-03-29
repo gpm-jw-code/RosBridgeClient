@@ -145,8 +145,9 @@ namespace RosSharp.RosBridgeClient
             ServiceResponseHandler = serviceResponseHandler;
             serviceCall = new ServiceCall<Tin>(id, service, serviceArguments);
         }
+
         public override void Consume(string message, ISerializer serializer)
-        {   
+        {
             ServiceResponseHandler.Invoke(serializer.Deserialize<Tout>(message));
         }
     }
