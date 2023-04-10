@@ -41,11 +41,11 @@ namespace RosSharp.RosBridgeClient.Actionlib
 
         public void Initialize()
         {
-            cancelPublicationID = rosSocket.Advertise<GoalID>(actionName + "/cancel");
-            goalPublicationID = rosSocket.Advertise<TActionGoal>(actionName + "/goal");
-            statusSubscriptionID = rosSocket.Subscribe<GoalStatusArray>(actionName + "/status", StatusCallback, (int)(timeStep * 1000));
-            feedbackSubscriptionID = rosSocket.Subscribe<TActionFeedback>(actionName + "/feedback", FeedbackCallback, (int)(timeStep * 1000));
-            resultSubscriptionID = rosSocket.Subscribe<TActionResult>(actionName + "/result", ResultCallback, (int)(timeStep * 1000));
+            cancelPublicationID = rosSocket?.Advertise<GoalID>(actionName + "/cancel");
+            goalPublicationID = rosSocket?.Advertise<TActionGoal>(actionName + "/goal");
+            statusSubscriptionID = rosSocket?.Subscribe<GoalStatusArray>(actionName + "/status", StatusCallback, (int)(timeStep * 1000));
+            feedbackSubscriptionID = rosSocket?.Subscribe<TActionFeedback>(actionName + "/feedback", FeedbackCallback, (int)(timeStep * 1000));
+            resultSubscriptionID = rosSocket?.Subscribe<TActionResult>(actionName + "/result", ResultCallback, (int)(timeStep * 1000));
         }
 
         public void Terminate()
