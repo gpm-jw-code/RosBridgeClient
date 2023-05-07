@@ -14,6 +14,7 @@ limitations under the License.
 */
 
 using RosSharp.RosBridgeClient.MessageTypes.Actionlib;
+using System;
 
 namespace RosSharp.RosBridgeClient.Actionlib
 {
@@ -50,11 +51,19 @@ namespace RosSharp.RosBridgeClient.Actionlib
 
         public void Terminate()
         {
-            rosSocket.Unadvertise(cancelPublicationID);
-            rosSocket.Unadvertise(goalPublicationID);
-            rosSocket.Unsubscribe(statusSubscriptionID);
-            rosSocket.Unsubscribe(feedbackSubscriptionID);
-            rosSocket.Unsubscribe(resultSubscriptionID);
+            try
+            {
+
+                rosSocket.Unadvertise(cancelPublicationID);
+                rosSocket.Unadvertise(goalPublicationID);
+                rosSocket.Unsubscribe(statusSubscriptionID);
+                rosSocket.Unsubscribe(feedbackSubscriptionID);
+                rosSocket.Unsubscribe(resultSubscriptionID);
+            }
+            catch (System.Exception ex)
+            {
+                Console.WriteLine($"[ActionClient-Terminate] ERROR {ex.Message}");
+            }
         }
 
         public void SendGoal()
@@ -84,7 +93,7 @@ namespace RosSharp.RosBridgeClient.Actionlib
 
         // Implement by user to handle feedback.
         protected abstract void OnFeedbackReceived();
-        private void FeedbackCallback(TActionFeedback actionFeedback)
+        protected virtual void FeedbackCallback(TActionFeedback actionFeedback)
         {
             action.action_feedback = actionFeedback;
             OnFeedbackReceived();
