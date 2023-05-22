@@ -17,6 +17,7 @@ limitations under the License.
 // Shimadzu corp , 2019, Akira NODA (a-noda@shimadzu.co.jp / you.akira.noda@gmail.com)
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -31,9 +32,9 @@ namespace RosSharp.RosBridgeClient
         public enum SerializerEnum { Microsoft, Newtonsoft_JSON, Newtonsoft_BSON }
 
         private Dictionary<string, Publisher> Publishers = new Dictionary<string, Publisher>();
-        private Dictionary<string, Subscriber> Subscribers = new Dictionary<string, Subscriber>();
+        private ConcurrentDictionary<string, Subscriber> Subscribers = new ConcurrentDictionary<string, Subscriber>();
         private Dictionary<string, ServiceProvider> ServiceProviders = new Dictionary<string, ServiceProvider>();
-        private Dictionary<string, ServiceConsumer> ServiceConsumers = new Dictionary<string, ServiceConsumer>();
+        private ConcurrentDictionary<string, ServiceConsumer> ServiceConsumers = new ConcurrentDictionary<string, ServiceConsumer>();
         private ISerializer Serializer;
         private object SubscriberLock = new object();
 
@@ -136,7 +137,7 @@ namespace RosSharp.RosBridgeClient
             {
                 id = GetUnusedCounterID(Subscribers, topic);
                 Subscription subscription;
-                Subscribers.Add(id, new Subscriber<T>(id, topic, subscriptionHandler, out subscription, throttle_rate, queue_length, fragment_size, compression));
+                Subscribers.TryAdd(id, new Subscriber<T>(id, topic, subscriptionHandler, out subscription, throttle_rate, queue_length, fragment_size, compression));
                 Send(subscription);
             }
 
@@ -146,7 +147,7 @@ namespace RosSharp.RosBridgeClient
         public void Unsubscribe(string id)
         {
             Send(Subscribers[id].Unsubscribe());
-            Subscribers.Remove(id);
+            Subscribers.TryRemove(id,out Subscriber subscriber);
         }
         #endregion
 
@@ -178,7 +179,7 @@ namespace RosSharp.RosBridgeClient
         {
             string id = GetUnusedCounterID(ServiceConsumers, service);
             Communication serviceCall;
-            ServiceConsumers.Add(id, new ServiceConsumer<Tin, Tout>(id, service, serviceResponseHandler, out serviceCall, serviceArguments));
+            ServiceConsumers.TryAdd(id, new ServiceConsumer<Tin, Tout>(id, service, serviceResponseHandler, out serviceCall, serviceArguments));
             Send(serviceCall);
             return id;
         }
@@ -193,7 +194,7 @@ namespace RosSharp.RosBridgeClient
             };
             string id = GetUnusedCounterID(ServiceConsumers, service);
             Communication serviceCall;
-            ServiceConsumers.Add(id, new ServiceConsumer<Tin, Tout>(id, service, new ServiceResponseHandler<Tout>(responseHandler), out serviceCall, serviceArguments));
+            ServiceConsumers.TryAdd(id, new ServiceConsumer<Tin, Tout>(id, service, new ServiceResponseHandler<Tout>(responseHandler), out serviceCall, serviceArguments));
             Send(serviceCall);
 
             CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(timeout));
@@ -240,10 +241,18 @@ namespace RosSharp.RosBridgeClient
                     }
                 case "service_response":
                     {
-                        string id = jsonElement.GetProperty("id");
-                        string values = jsonElement.GetProperty("values");
-                        ServiceConsumers[id].Consume(values, Serializer);
-                        return;
+                        try
+                        {
+                            string id = jsonElement.GetProperty("id");
+                            string values = jsonElement.GetProperty("values");
+                            ServiceConsumers[id].Consume(values, Serializer);
+                            return;
+
+                        }
+                        catch (Exception ex)
+                        {
+                            throw ex;
+                        }
                     }
                 case "call_service":
                     {
@@ -258,10 +267,13 @@ namespace RosSharp.RosBridgeClient
 
         private List<Subscriber> SubscribersOf(string topic)
         {
-            return Subscribers.Where(pair => pair.Key.StartsWith(topic + ":")).Select(pair => pair.Value).ToList();
+            lock (Subscribers)
+            {
+                return Subscribers.Where(pair => pair.Key.StartsWith(topic + ":")).Select(pair => pair.Value).ToList();
+            }
         }
 
-        private static string GetUnusedCounterID<T>(Dictionary<string, T> dictionary, string name)
+        private static string GetUnusedCounterID<T>(ConcurrentDictionary<string, T> dictionary, string name)
         {
             int I = 0;
             string id;
