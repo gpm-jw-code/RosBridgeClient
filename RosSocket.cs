@@ -117,7 +117,8 @@ namespace RosSharp.RosBridgeClient
 
         public void Publish(string id, Message message)
         {
-            Send(Publishers[id].Publish(message));
+            if (Publishers.TryGetValue(id, out Publisher val))
+                Send(val.Publish(message));
         }
 
         public void Unadvertise(string id)
@@ -147,7 +148,7 @@ namespace RosSharp.RosBridgeClient
         public void Unsubscribe(string id)
         {
             Send(Subscribers[id].Unsubscribe());
-            Subscribers.TryRemove(id,out Subscriber subscriber);
+            Subscribers.TryRemove(id, out Subscriber subscriber);
         }
         #endregion
 
